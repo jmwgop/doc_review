@@ -20,7 +20,6 @@ def _widget_cfg(path: str):
   return FIELD_WIDGETS.get(n, None)
 # ---------------------------------------------------------------------------
 
-
 class JsonTextboxBuilder:
 
   def __init__(self, saved_flags=None):
