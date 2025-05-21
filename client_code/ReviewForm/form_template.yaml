@@ -9,13 +9,18 @@ components:
     name: pdf_frame
     properties: {height: 90vh}
     type: form:dep_ymeqywesz5sgo:IFrame
-  - layout_properties: {col_xs: 7, row: ODGWBC, width_xs: 5}
+  - layout_properties: {col_xs: 6, row: ODGWBC, width_xs: 6}
     name: dynamic_container
-    properties: {role: outlined-card}
+    properties: {col_spacing: none, spacing_above: none, spacing_below: none}
     type: ColumnPanel
+  data_bindings: []
   layout_properties: {slot: default}
   name: grid_panel_1
-  properties: {}
+  properties:
+    spacing:
+      padding: [0, 0, null, 0]
+    spacing_above: none
+    spacing_below: none
   type: GridPanel
 container:
   properties: {html: '@theme:standard-page.html', visible: true}

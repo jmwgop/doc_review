@@ -14,7 +14,8 @@
 # ---------- 1. Hide fields from the reviewer UI ----------
 EXCLUDE_PATHS = [
   # Don’t surface party addresses – users rarely edit them here
-  "parties[*].address",
+  "address",
+  "tracts"
   # Depth info seldom needs manual edits
   # Long auto-analysis blob – keep it, just don’t show it
 ]

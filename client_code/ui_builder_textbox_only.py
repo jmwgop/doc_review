@@ -12,9 +12,27 @@ def _normalise(path: str) -> str:
   """Convert 'parties[0].address.street' → 'parties[*].address.street'."""
   return re.sub(r"\[\d+\]", "[*]", path)
 
+# ui_builder_textbox_only.py
+# -------------------------------------------------
 def _is_excluded(path: str) -> bool:
-  n = _normalise(path)
-  return any(n == _normalise(p) for p in EXCLUDE_PATHS)
+  """
+    Return True if `path` itself **or any parent path**
+    (after normalising list indices) is in EXCLUDE_PATHS.
+    Prints debug info for every candidate it checks.
+    """
+  def _norm(p: str) -> str:
+    return re.sub(r"\[\d+\]", "[*]", p)
+
+  n = _norm(path)
+  parts = n.split(".")
+
+  for i in range(len(parts), 0, -1):
+    candidate = ".".join(parts[:i])
+    match = any(candidate == _norm(p) for p in EXCLUDE_PATHS)
+    print(f"[DEBUG _is_excluded] checking {candidate!r} → {match}")
+    if match:
+      return True
+  return False
 
 def _widget_cfg(path: str):
   n = _normalise(path)
@@ -37,10 +55,13 @@ class JsonTextboxBuilder:
     if isinstance(value, dict):
       card = ColumnPanel(role="outlined-card")            # visual grouping
       for k, v in value.items():
-        # label + row container
+        child_path = f"{path}.{k}" if path else k
+        if _is_excluded(child_path):
+          continue                        # skip both label **and** subtree
+    
         row = FlowPanel(spacing="medium")
         row.add_component(Label(text=k, bold=True))
-        row.add_component(self.build(v, f"{path}.{k}" if path else k))
+        row.add_component(self.build(v, child_path))
         card.add_component(row)
       return card
 

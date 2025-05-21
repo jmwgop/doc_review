@@ -15,12 +15,10 @@ class JsonItemTpl(JsonItemTplTemplate):
 
   @item.setter
   def item(self, item):
-    print("item.setter called")
     self._item = item
     self.set_item(item)
 
   def set_item(self, item):
-    print("set_item called")
     self.container.clear()
     self.container.add_component(
       Label(text=item.get("description", "NO DESCRIPTION FOUND"))
