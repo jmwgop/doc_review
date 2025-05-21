@@ -65,36 +65,34 @@ class JsonTextboxBuilder:
         card.add_component(row)
       return card
 
-      # ---------- list ----------
+
+    # ---------- list ----------
     if isinstance(value, list):
-      wrapper = ColumnPanel()
+      wrapper = ColumnPanel(spacing="none")
       rp = RepeatingPanel(item_template="JsonItemTpl")
       rp.spacing = "none"
-      rp.role = None  # In case it's inheriting styles from a role
-      wrapper.spacing = "none"
-
-
-      
+      rp.role = None
+    
       rp.items = value or []
     
-      # 🔧 Set parent_path on each template instance when rendered
       def setup_row(**event_args):
-        row = event_args['sender']  # the row template instance
+        row = event_args['sender']
         row.parent_path = path
     
       rp.set_event_handler('show', setup_row)
     
       self.path_to_widget[path] = rp
       wrapper.add_component(rp)
-
+    
       # add/remove controls
       add_btn = Button(text="+ Add", role="outlined-button")
       add_btn.set_event_handler("click", lambda **e: self._add_list_item(path))
       wrapper.add_component(add_btn)
-
+    
       wrapper.expand = True
-      
+    
       return wrapper
+
 
       # ---------- scalar ----------
     cfg = _widget_cfg(path) or {}

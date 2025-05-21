@@ -11,7 +11,12 @@ components:
     type: form:dep_ymeqywesz5sgo:IFrame
   - layout_properties: {col_xs: 6, row: ODGWBC, width_xs: 6}
     name: dynamic_container
-    properties: {col_spacing: none, spacing_above: none, spacing_below: none}
+    properties:
+      col_spacing: none
+      spacing:
+        padding: [0, 0, null, 0]
+      spacing_above: none
+      spacing_below: none
     type: ColumnPanel
   data_bindings: []
   layout_properties: {slot: default}
