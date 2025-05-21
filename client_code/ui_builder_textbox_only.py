@@ -53,13 +53,21 @@ class JsonTextboxBuilder:
 
       # ---------- dict ----------
     if isinstance(value, dict):
-      card = ColumnPanel(role="outlined-card")            # visual grouping
+      card = ColumnPanel(
+        role="outlined-card",
+        spacing_above="none",
+        spacing_below="none"
+
+      )
       for k, v in value.items():
         child_path = f"{path}.{k}" if path else k
         if _is_excluded(child_path):
           continue                        # skip both label **and** subtree
     
-        row = FlowPanel(spacing="medium")
+        row = FlowPanel(
+                        spacing_above="none",
+                        spacing_below="none"
+                       )
         row.add_component(Label(text=k, bold=True))
         row.add_component(self.build(v, child_path))
         card.add_component(row)
@@ -69,10 +77,9 @@ class JsonTextboxBuilder:
     # ---------- list ----------
     if isinstance(value, list):
       wrapper = ColumnPanel(spacing="none")
-      rp = RepeatingPanel(item_template="JsonItemTpl")
-      rp.spacing = "none"
-      rp.role = None
-    
+      rp = RepeatingPanel(item_template="JsonItemTpl",
+                          spacing_above='none',
+                          spacing_below='none')    
       rp.items = value or []
     
       def setup_row(**event_args):

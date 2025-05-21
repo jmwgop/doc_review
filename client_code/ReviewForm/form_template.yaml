@@ -14,7 +14,7 @@ components:
     properties:
       col_spacing: none
       spacing:
-        padding: [0, 0, null, 0]
+        padding: [0, 0, 0, 0]
       spacing_above: none
       spacing_below: none
     type: ColumnPanel
@@ -23,7 +23,7 @@ components:
   name: grid_panel_1
   properties:
     spacing:
-      padding: [0, 0, null, 0]
+      padding: [0, 0, 0, 0]
     spacing_above: none
     spacing_below: none
   type: GridPanel
