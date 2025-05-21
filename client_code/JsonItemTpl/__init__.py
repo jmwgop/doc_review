@@ -5,16 +5,36 @@ from ..ui_builder_textbox_only import JsonTextboxBuilder
 
 class JsonItemTpl(JsonItemTplTemplate):
 
+  def __init__(self, **properties):
+    print('Loaded JsonItemTpl')
+    self.init_components(**properties)
+
+  @property
+  def item(self):
+    return getattr(self, '_item', None)
+
+  @item.setter
+  def item(self, item):
+    print("item.setter called")
+    self._item = item
+    self.set_item(item)
+
   def set_item(self, item):
-    """
-    Called automatically by the RepeatingPanel for each list element.
-    `item` is the dict / scalar representing that row.
-    """
-    # 1. rebuild the inner widgets
-    self.builder = JsonTextboxBuilder()       # fresh builder per row
+    print("set_item called")
     self.container.clear()
     self.container.add_component(
-      self.builder.build(item)              # drop generated widgets
+      Label(text=item.get("description", "NO DESCRIPTION FOUND"))
+    )
+    self.builder = JsonTextboxBuilder()
+    index = None
+    try:
+      index = self.parent.items.index(item)
+      path = f"{self.parent_path}[{index}]" if hasattr(self, 'parent_path') else ""
+    except Exception:
+      path = ""
+      
+    self.container.add_component(
+      self.builder.build(item, path=path)
     )
 
   # 2. remove-row logic

@@ -41,6 +41,7 @@ FIELD_WIDGETS = {
   "legal_description":        {"type": "textarea"},
   "document_details.open_interest_reasoning": {"type": "textarea"},
   "document_details.lease_complexity_reasoning": {"type": "textarea"},
+  "document_details.analysis": {"type": "textarea"},
 }
 
 # ---------- Helper ---------------------------------------------------------

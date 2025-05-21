@@ -27,6 +27,9 @@ class ReviewForm(ReviewFormTemplate):
 
     payload = (self.data_obj.get("output") or [{}])[0]
 
+    print("TRACTS:", payload.get("tracts"))
+    print("PARTIES:", payload.get("parties"))
+
     self.builder = JsonTextboxBuilder(saved_flags=self.flags)
     self.dynamic_container.clear()
     self.dynamic_container.add_component(

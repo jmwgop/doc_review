@@ -6,6 +6,7 @@ from .field_config import EXCLUDE_PATHS, FIELD_WIDGETS, ALLOWED_WIDGET_TYPES
 from . import flag_utils as fu
 import re
 
+
 # ----- helpers for path matching -------------------------------------------
 def _normalise(path: str) -> str:
   """Convert 'parties[0].address.street' → 'parties[*].address.street'."""
@@ -27,7 +28,7 @@ class JsonTextboxBuilder:
     self.path_to_flag_cb = {}
     self.saved_flags = saved_flags or {}
 
-    # ------------------------------------------------------------------ build
+  # ------------------------------------------------------------------ build
   def build(self, value, path=""):
     if _is_excluded(path):
       return Spacer()   # skip entirely
@@ -48,6 +49,14 @@ class JsonTextboxBuilder:
       wrapper = ColumnPanel()
       rp = RepeatingPanel(item_template="JsonItemTpl")
       rp.items = value or []
+    
+      # 🔧 Set parent_path on each template instance when rendered
+      def setup_row(**event_args):
+        row = event_args['sender']  # the row template instance
+        row.parent_path = path
+    
+      rp.set_event_handler('show', setup_row)
+    
       self.path_to_widget[path] = rp
       wrapper.add_component(rp)
 
@@ -56,6 +65,8 @@ class JsonTextboxBuilder:
       add_btn.set_event_handler("click", lambda **e: self._add_list_item(path))
       wrapper.add_component(add_btn)
 
+      wrapper.expand = True
+      
       return wrapper
 
       # ---------- scalar ----------
