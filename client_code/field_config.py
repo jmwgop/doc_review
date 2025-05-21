@@ -15,8 +15,10 @@
 EXCLUDE_PATHS = [
   # Don’t surface party addresses – users rarely edit them here
   # Depth info seldom needs manual edits
+  "tracts",
   "address",
-  "tracts"
+  "run_config",
+  "role"
   # Long auto-analysis blob – keep it, just don’t show it
 ]
 
