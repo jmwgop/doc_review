@@ -3,15 +3,20 @@ components:
   - data_bindings: []
     layout_properties: {grid_position: 'SWHDIA,BGEWXC'}
     name: remove_btn
-    properties: {align: right, icon: 'fa:trash', icon_align: right_edge, text: ''}
+    properties: {align: right, icon: 'fa:trash', icon_align: right_edge, spacing_above: none, spacing_below: none, text: ''}
     type: Button
   - layout_properties: {grid_position: 'NRHNBU,VBJCGE'}
     name: container
-    properties: {}
+    properties: {col_spacing: none, spacing_above: none, spacing_below: none}
     type: ColumnPanel
   layout_properties: {slot: default}
   name: content_panel
-  properties: {}
+  properties:
+    col_spacing: none
+    spacing:
+      padding: [0, 0, 0, 0]
+    spacing_above: none
+    spacing_below: none
   type: ColumnPanel
 - layout_properties: {slot: nav-right}
   name: navbar_links

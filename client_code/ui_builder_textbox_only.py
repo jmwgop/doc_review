@@ -69,6 +69,12 @@ class JsonTextboxBuilder:
     if isinstance(value, list):
       wrapper = ColumnPanel()
       rp = RepeatingPanel(item_template="JsonItemTpl")
+      rp.spacing = "none"
+      rp.role = None  # In case it's inheriting styles from a role
+      wrapper.spacing = "none"
+
+
+      
       rp.items = value or []
     
       # 🔧 Set parent_path on each template instance when rendered
