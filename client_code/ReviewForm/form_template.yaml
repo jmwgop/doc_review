@@ -4,9 +4,10 @@ components:
   properties: {}
   type: FlowPanel
 - components:
-  - layout_properties: {col_xs: 1, row: ODGWBC, width_xs: 5}
+  - data_bindings: []
+    layout_properties: {col_xs: 1, row: ODGWBC, width_xs: 5}
     name: pdf_frame
-    properties: {}
+    properties: {height: 90vh}
     type: form:dep_ymeqywesz5sgo:IFrame
   - layout_properties: {col_xs: 7, row: ODGWBC, width_xs: 5}
     name: dynamic_container
@@ -17,6 +18,6 @@ components:
   properties: {}
   type: GridPanel
 container:
-  properties: {html: '@theme:standard-page.html'}
+  properties: {html: '@theme:standard-page.html', visible: true}
   type: HtmlTemplate
 is_package: true
