@@ -30,7 +30,8 @@ class ReviewForm(ReviewFormTemplate):
     self.builder = JsonTextboxBuilder(saved_flags=self.flags)
     self.dynamic_container.clear()
     self.dynamic_container.add_component(
-      self.builder.build(payload)
+      self.builder.build(payload),
+      full_width_row=True
     )
     self.payload_path = "output[0]"
 

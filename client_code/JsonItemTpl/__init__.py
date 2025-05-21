@@ -30,7 +30,7 @@ class JsonItemTpl(JsonItemTplTemplate):
       path = f"{self.parent_path}[{index}]" if hasattr(self, 'parent_path') else ""
     except Exception:
       path = ""
-      
+
     self.container.add_component(
       self.builder.build(item, path=path)
     )

@@ -1,35 +1,24 @@
 # ui_builder_textbox_only.py   (CLIENT module)
 
 from anvil import *
-import datetime   
+import datetime
 from .field_config import EXCLUDE_PATHS, FIELD_WIDGETS, ALLOWED_WIDGET_TYPES
 from . import flag_utils as fu
 import re
-
 
 # ----- helpers for path matching -------------------------------------------
 def _normalise(path: str) -> str:
   """Convert 'parties[0].address.street' → 'parties[*].address.street'."""
   return re.sub(r"\[\d+\]", "[*]", path)
 
-# ui_builder_textbox_only.py
-# -------------------------------------------------
 def _is_excluded(path: str) -> bool:
-  """
-    Return True if `path` itself **or any parent path**
-    (after normalising list indices) is in EXCLUDE_PATHS.
-    Prints debug info for every candidate it checks.
-    """
   def _norm(p: str) -> str:
     return re.sub(r"\[\d+\]", "[*]", p)
-
   n = _norm(path)
   parts = n.split(".")
-
   for i in range(len(parts), 0, -1):
     candidate = ".".join(parts[:i])
     match = any(candidate == _norm(p) for p in EXCLUDE_PATHS)
-    print(f"[DEBUG _is_excluded] checking {candidate!r} → {match}")
     if match:
       return True
   return False
@@ -37,7 +26,6 @@ def _is_excluded(path: str) -> bool:
 def _widget_cfg(path: str):
   n = _normalise(path)
   return FIELD_WIDGETS.get(n, None)
-# ---------------------------------------------------------------------------
 
 class JsonTextboxBuilder:
 
@@ -46,62 +34,69 @@ class JsonTextboxBuilder:
     self.path_to_flag_cb = {}
     self.saved_flags = saved_flags or {}
 
-  # ------------------------------------------------------------------ build
   def build(self, value, path=""):
     if _is_excluded(path):
-      return Spacer()   # skip entirely
+      return None
 
-      # ---------- dict ----------
+    # ---------- dict ----------
     if isinstance(value, dict):
       card = ColumnPanel(
         role="outlined-card",
         spacing_above="none",
-        spacing_below="none"
-
+        spacing_below="none",
+        col_spacing="none",
       )
+      card.expand = True
       for k, v in value.items():
         child_path = f"{path}.{k}" if path else k
         if _is_excluded(child_path):
-          continue                        # skip both label **and** subtree
-    
+          continue
         row = FlowPanel(
-                        spacing_above="none",
-                        spacing_below="none"
-                       )
+          spacing_above="none",
+          spacing_below="none",
+          spacing="none"
+        )
         row.add_component(Label(text=k, bold=True))
-        row.add_component(self.build(v, child_path))
+        sub_component = self.build(v, child_path)
+        if sub_component is not None:
+          row.add_component(sub_component)
         card.add_component(row)
       return card
 
-
     # ---------- list ----------
     if isinstance(value, list):
-      wrapper = ColumnPanel(spacing="none")
-      rp = RepeatingPanel(item_template="JsonItemTpl",
-                          spacing_above='none',
-                          spacing_below='none')    
+      # Only wrap in a ColumnPanel if you need the "Add" button; otherwise just return the RepeatingPanel
+      if len(value) == 0:
+        # If the list is empty, still return a panel with an Add button
+        panel = ColumnPanel(spacing="none", spacing_above="none", spacing_below="none", col_spacing="none")
+        add_btn = Button(text="+ Add", role="outlined-button", spacing_above="none", spacing_below="none")
+        add_btn.set_event_handler("click", lambda **e: self._add_list_item(path))
+        panel.add_component(add_btn)
+        return panel
+
+      rp = RepeatingPanel(
+        item_template="JsonItemTpl",
+        spacing_above="none",
+        spacing_below="none"
+      )
       rp.items = value or []
-    
+
       def setup_row(**event_args):
         row = event_args['sender']
         row.parent_path = path
-    
+
       rp.set_event_handler('show', setup_row)
-    
       self.path_to_widget[path] = rp
-      wrapper.add_component(rp)
-    
-      # add/remove controls
-      add_btn = Button(text="+ Add", role="outlined-button")
+
+      # Only add the Add button under the RP if needed
+      panel = ColumnPanel(spacing="none", spacing_above="none", spacing_below="none", col_spacing="none")
+      panel.add_component(rp)
+      add_btn = Button(text="+ Add", role="outlined-button", spacing_above="none", spacing_below="none")
       add_btn.set_event_handler("click", lambda **e: self._add_list_item(path))
-      wrapper.add_component(add_btn)
-    
-      wrapper.expand = True
-    
-      return wrapper
+      panel.add_component(add_btn)
+      return panel
 
-
-      # ---------- scalar ----------
+    # ---------- scalar ----------
     cfg = _widget_cfg(path) or {}
     widget_type = cfg.get("type", "textbox")
     if widget_type not in ALLOWED_WIDGET_TYPES:
@@ -111,7 +106,6 @@ class JsonTextboxBuilder:
       w = TextArea(text=self._to_str(value), height="6em")
     elif widget_type == "dropdown":
       choices = cfg.get("choices", [])
-      # ensure current value included
       if self._to_str(value) not in choices:
         choices = choices + [self._to_str(value)]
       w = DropDown(items=[(c, c) for c in choices], selected_value=self._to_str(value))
@@ -121,7 +115,7 @@ class JsonTextboxBuilder:
       except Exception:
         dt_val = None
       w = DatePicker(date=dt_val)
-    else:  # textbox default
+    else:
       is_long = isinstance(value, str) and ("\n" in value or len(value) > 80)
       if is_long:
         w = TextArea(text=self._to_str(value), height="6em")
@@ -134,22 +128,19 @@ class JsonTextboxBuilder:
     flag_cb = fu.create_flag_checkbox(path, flagged=self.saved_flags.get(path, False))
     self.path_to_flag_cb[path] = flag_cb
 
-    row = FlowPanel(spacing="small")
+    row = FlowPanel(spacing="none", spacing_above="none", spacing_below="none")
     row.add_component(w)
     row.add_component(flag_cb)
     return row
 
-    # ------------------------------------------------------------ collect ----
   def collect(self, original, path=""):
     if _is_excluded(path):
-      return original   # untouched
+      return original
 
-      # dict
     if isinstance(original, dict):
       return {k: self.collect(v, f"{path}.{k}" if path else k)
               for k, v in original.items()}
 
-      # list
     if isinstance(original, list):
       rp = self.path_to_widget[path]
       collected = []
@@ -157,7 +148,6 @@ class JsonTextboxBuilder:
         collected.append(self.collect(itm, f"{path}[{i}]"))
       return collected
 
-      # scalar
     w = self.path_to_widget[path]
     val = self._get_widget_value(w)
     return val
@@ -165,12 +155,10 @@ class JsonTextboxBuilder:
   def collect_flags(self):
     return fu.collect_flags(self.path_to_flag_cb)
 
-    # --------------------------------------------------------- internals -----
   def _add_list_item(self, path):
     rp = self.path_to_widget.get(path)
     if rp is None:
       return
-      # assume homogenous list of dicts → empty dict; else None
     blank = {} if rp.items and isinstance(rp.items[0], dict) else None
     rp.items = rp.items + [blank]
 
@@ -184,7 +172,6 @@ class JsonTextboxBuilder:
       return self._from_str(txt)
     return None
 
-    # ---------- helpers ------------------------------------------------------
   def _to_str(self, v):
     if v is None:
       return ""

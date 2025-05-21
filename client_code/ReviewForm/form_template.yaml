@@ -9,7 +9,7 @@ components:
     name: pdf_frame
     properties: {height: 90vh}
     type: form:dep_ymeqywesz5sgo:IFrame
-  - layout_properties: {col_xs: 6, row: ODGWBC, width_xs: 6}
+  - layout_properties: {col_xs: 6, row: ODGWBC, width_xs: 5}
     name: dynamic_container
     properties:
       col_spacing: none
