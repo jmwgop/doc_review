@@ -1,41 +1,29 @@
 from ._anvil_designer import ReviewFormTemplate
-from anvil import *
-import anvil.server
-import anvil.js
-from datetime import date
-from anvil import PDFViewer
+import anvil.server, json
+from anvil.js.window import encodeURIComponent
 
 class ReviewForm(ReviewFormTemplate):
-  def __init__(self, row_id=None, **properties):
+
+  def __init__(self, doc_id, **properties):
     self.init_components(**properties)
+    self.doc_id = doc_id
+    self._load_document()
 
-    # If no row_id supplied, grab the first doc automatically
-    if row_id is None:
-      docs = anvil.server.call('list_documents')
-      if docs:
-        row_id = docs[0]['row_id']
-      else:
-        alert("No documents in the database.")
-        return
+  # ---------- helpers ----------
+  def _load_document(self):
+    pdf_url, original_json_str, active_json_str = anvil.server.call(
+      "get_document", self.doc_id
+    )
 
-    self.load_doc(row_id)
-
-  def load_doc(self, row_id):
-    details = anvil.server.call("get_document", row_id)
-    self.row_id = row_id
-
-    # Use Anvil's built-in PDF viewer (if available in your version)
-    if "pdf" in details and details["pdf"]:
-      self.pdf_viewer.content = ""  # Clear existing content
-      self.pdf_viewer.add_component(PDFViewer(pdf=details["pdf"]))
+    # ---- PDF on the left ----
+    if pdf_url:
+      self.pdf_frame.url = pdf_url          # one line does it
     else:
-      self.pdf_viewer.content = "No PDF available"
+      self.pdf_frame.url = "about:blank"
 
-    # Display JSON (simple version)
-    if "json" in details:
-      self.form_container.clear()
-      text_area = TextArea(text=str(details["json"]), height="100%")
-      self.form_container.add_component(text_area)
-
-  def btn_save_click(self, **event_args):
-    alert("Save functionality will be implemented later", title="Info")
+    # ---- JSON on the right ----
+    self.json_area.text = active_json_str
+  # ---------- events ----------
+  def save_btn_click(self, **event_args):
+    res = anvil.server.call("save_corrected_json", self.doc_id, self.json_area.text)
+    alert("Saved!" if res["ok"] else res["msg"], title="Save result", large=not res["ok"])

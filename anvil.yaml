@@ -82,6 +82,6 @@ services:
 - client_config: {}
   server_config: {}
   source: /runtime/services/google.yml
-startup: {module: ReviewForm, type: form}
+startup: {module: LandingForm, type: form}
 startup_form: null
 uplink_visible: true
