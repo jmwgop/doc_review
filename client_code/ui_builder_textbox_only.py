@@ -1,57 +1,164 @@
-# ui_builder_textbox_only.py
+# ui_builder_textbox_only.py   (CLIENT module)
+
 from anvil import *
+import datetime   
+from .field_config import EXCLUDE_PATHS, FIELD_WIDGETS, ALLOWED_WIDGET_TYPES
+from . import flag_utils as fu
+import re
+
+# ----- helpers for path matching -------------------------------------------
+def _normalise(path: str) -> str:
+  """Convert 'parties[0].address.street' → 'parties[*].address.street'."""
+  return re.sub(r"\[\d+\]", "[*]", path)
+
+def _is_excluded(path: str) -> bool:
+  n = _normalise(path)
+  return any(n == _normalise(p) for p in EXCLUDE_PATHS)
+
+def _widget_cfg(path: str):
+  n = _normalise(path)
+  return FIELD_WIDGETS.get(n, None)
+# ---------------------------------------------------------------------------
+
 
 class JsonTextboxBuilder:
-  def __init__(self):
+
+  def __init__(self, saved_flags=None):
     self.path_to_widget = {}
+    self.path_to_flag_cb = {}
+    self.saved_flags = saved_flags or {}
 
-    # ---------- build ----------
+    # ------------------------------------------------------------------ build
   def build(self, value, path=""):
-    if isinstance(value, dict):
-      cp = ColumnPanel()
-      for k, v in value.items():
-        cp.add_component(Label(text=k, bold=True))
-        cp.add_component(self.build(v, f"{path}.{k}" if path else k))
-      return cp
+    if _is_excluded(path):
+      return Spacer()   # skip entirely
 
+      # ---------- dict ----------
+    if isinstance(value, dict):
+      card = ColumnPanel(role="outlined-card")            # visual grouping
+      for k, v in value.items():
+        # label + row container
+        row = FlowPanel(spacing="medium")
+        row.add_component(Label(text=k, bold=True))
+        row.add_component(self.build(v, f"{path}.{k}" if path else k))
+        card.add_component(row)
+      return card
+
+      # ---------- list ----------
     if isinstance(value, list):
-      rp = RepeatingPanel()
-      rp.item_template = "JsonItemTpl"      # a simple form you create once
+      wrapper = ColumnPanel()
+      rp = RepeatingPanel(item_template="JsonItemTpl")
       rp.items = value or []
       self.path_to_widget[path] = rp
-      return rp
+      wrapper.add_component(rp)
 
-    tb = TextBox(text=self._to_str(value))
-    self.path_to_widget[path] = tb
-    return tb
+      # add/remove controls
+      add_btn = Button(text="+ Add", role="outlined-button")
+      add_btn.set_event_handler("click", lambda **e: self._add_list_item(path))
+      wrapper.add_component(add_btn)
 
-    # ---------- collect ----------
+      return wrapper
+
+      # ---------- scalar ----------
+    cfg = _widget_cfg(path) or {}
+    widget_type = cfg.get("type", "textbox")
+    if widget_type not in ALLOWED_WIDGET_TYPES:
+      widget_type = "textbox"
+
+    if widget_type == "textarea":
+      w = TextArea(text=self._to_str(value), height="6em")
+    elif widget_type == "dropdown":
+      choices = cfg.get("choices", [])
+      # ensure current value included
+      if self._to_str(value) not in choices:
+        choices = choices + [self._to_str(value)]
+      w = DropDown(items=[(c, c) for c in choices], selected_value=self._to_str(value))
+    elif widget_type == "datepicker":
+      try:
+        dt_val = datetime.date.fromisoformat(value) if value else None
+      except Exception:
+        dt_val = None
+      w = DatePicker(date=dt_val)
+    else:  # textbox default
+      is_long = isinstance(value, str) and ("\n" in value or len(value) > 80)
+      if is_long:
+        w = TextArea(text=self._to_str(value), height="6em")
+      else:
+        w = TextBox(text=self._to_str(value))
+
+    self.path_to_widget[path] = w
+
+    # ---- flag checkbox ----
+    flag_cb = fu.create_flag_checkbox(path, flagged=self.saved_flags.get(path, False))
+    self.path_to_flag_cb[path] = flag_cb
+
+    row = FlowPanel(spacing="small")
+    row.add_component(w)
+    row.add_component(flag_cb)
+    return row
+
+    # ------------------------------------------------------------ collect ----
   def collect(self, original, path=""):
-    if isinstance(original, dict):
-      return {
-        k: self.collect(v, f"{path}.{k}" if path else k)
-        for k, v in original.items()
-      }
+    if _is_excluded(path):
+      return original   # untouched
 
+      # dict
+    if isinstance(original, dict):
+      return {k: self.collect(v, f"{path}.{k}" if path else k)
+              for k, v in original.items()}
+
+      # list
     if isinstance(original, list):
       rp = self.path_to_widget[path]
-      return [self.collect(item, f"{path}[{i}]")
-              for i, item in enumerate(rp.items)]
+      collected = []
+      for i, itm in enumerate(rp.items):
+        collected.append(self.collect(itm, f"{path}[{i}]"))
+      return collected
 
-    txt = self.path_to_widget[path].text.strip()
-    return self._from_str(txt)
+      # scalar
+    w = self.path_to_widget[path]
+    val = self._get_widget_value(w)
+    return val
 
-    # ---------- helpers ----------
+  def collect_flags(self):
+    return fu.collect_flags(self.path_to_flag_cb)
+
+    # --------------------------------------------------------- internals -----
+  def _add_list_item(self, path):
+    rp = self.path_to_widget.get(path)
+    if rp is None:
+      return
+      # assume homogenous list of dicts → empty dict; else None
+    blank = {} if rp.items and isinstance(rp.items[0], dict) else None
+    rp.items = rp.items + [blank]
+
+  def _get_widget_value(self, widget):
+    if isinstance(widget, DropDown):
+      return widget.selected_value
+    if isinstance(widget, DatePicker):
+      return widget.date.isoformat() if widget.date else None
+    if isinstance(widget, (TextArea, TextBox)):
+      txt = widget.text.strip()
+      return self._from_str(txt)
+    return None
+
+    # ---------- helpers ------------------------------------------------------
   def _to_str(self, v):
-    if v is None:             return ""
-    if isinstance(v, bool):   return "true" if v else "false"
+    if v is None:
+      return ""
+    if isinstance(v, bool):
+      return "true" if v else "false"
     return str(v)
 
   def _from_str(self, s):
-    if s == "":               return None
-    if s.lower() in ("true","false"): return s.lower() == "true"
-    try:  return int(s)
+    if s == "":
+      return None
+    if s.lower() in ("true", "false"):
+      return s.lower() == "true"
+    try:
+      return int(s)
     except ValueError:
-      try:  return float(s)
+      try:
+        return float(s)
       except ValueError:
         return s

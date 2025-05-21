@@ -1,5 +1,15 @@
 components:
-- layout_properties: {slot: default}
+- components:
+  - data_bindings: []
+    layout_properties: {grid_position: 'SWHDIA,BGEWXC'}
+    name: remove_btn
+    properties: {align: right, icon: 'fa:trash', icon_align: right_edge, text: ''}
+    type: Button
+  - layout_properties: {grid_position: 'WCYQNI,EPLEIC'}
+    name: container
+    properties: {role: outlined-card}
+    type: ColumnPanel
+  layout_properties: {slot: default}
   name: content_panel
   properties: {}
   type: ColumnPanel

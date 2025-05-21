@@ -1,64 +1,70 @@
 # ServerModule: document_helpers
 import json, anvil.server, anvil.media
-import anvil.server
 import anvil.tables as tables
 from anvil.tables import app_tables
+
 
 @anvil.server.callable
 def get_document(doc_id):
   """
-    Returns (pdf_inline_url_or_None, result_json_str, corrected_json_str)
-    """
+  Returns (pdf_inline_url_or_None, active_json_str, flags_dict)
+
+  * active_json_str → corrected_json if present, else result_json
+  * flags_dict      → contents of the `flags` column, or {} if none
+  """
   row = app_tables.documents.get(doc_id=doc_id)
   if not row:
     raise ValueError(f"No document with id {doc_id}")
 
+  # ----- PDF URL (inline) -----
   pdf_media = row["pdf"]
+  pdf_url = pdf_media.get_url(False) if pdf_media else None
 
-  # ----- build an *inline* URL if we have a PDF -----
-  pdf_url = None
-  if pdf_media:
-    # attachment=False → Content-Disposition: inline
-    pdf_url = pdf_media.get_url(False)
-    print(pdf_url)
+  # ----- JSON -----
   active_json = row["corrected_json"] or row["result_json"] or {}
-  return (
-    pdf_url,                                  # <- plain string now
-    json.dumps(row["result_json"] or {}, indent=2),
-    json.dumps(active_json, indent=2),
-  )
-  
+  json_str = json.dumps(active_json, indent=2)
+
+  # ----- Flags -----
+  flags = row["flags"] or {}
+
+  return pdf_url, json_str, flags
+
+
 @anvil.server.callable
-def save_corrected_json(doc_id, json_text):
+def save_corrected_json(doc_id, json_text, flags=None):
   """
-    Parses json_text, writes it to corrected_json column, returns ok/err.
-    """
-  import json
+  Writes `corrected_json` and `flags` back to the row.
+
+  Args:
+      doc_id    : document row key
+      json_text : stringified JSON to store in corrected_json
+      flags     : dict of {path: True} flag states (may be None)
+  Returns:
+      {"ok": True} on success, or {"ok": False, "msg": "..."} on error
+  """
   row = app_tables.documents.get(doc_id=doc_id)
   if not row:
     raise ValueError(f"No document with id {doc_id}")
 
   try:
-    parsed = json.loads(json_text)
+    parsed_json = json.loads(json_text)
   except json.JSONDecodeError as e:
     return {"ok": False, "msg": f"JSON error: {e}"}
 
-  row['corrected_json'] = parsed
+  row["corrected_json"] = parsed_json
+  row["flags"] = flags or {}
+
   return {"ok": True}
+
 
 @anvil.server.callable
 def get_document_dropdown_items(limit=None):
   """
-  Returns a list of (label, value) pairs for a dropdown.
+  Returns a list of (label, value) pairs for the dropdown.
   Both label and value are the doc_id, sorted A–Z.
   """
-  rows = app_tables.documents.search()            # no limit
-
-  # Build and sort items
-  items = [(row['doc_id'], row['doc_id']) for row in rows]
+  rows = app_tables.documents.search()  # add limit if you wish
+  items = [(r["doc_id"], r["doc_id"]) for r in rows]
   items.sort(key=lambda t: t[0])
-
-  # Optional blank/placeholder at the top:
-  items.insert(0, ('', None))      # label='', value=None
-
+  items.insert(0, ("", None))           # blank placeholder
   return items
