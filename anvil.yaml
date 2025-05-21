@@ -1,4 +1,56 @@
 allow_embedding: false
+db_schema:
+  documents:
+    client: none
+    columns:
+    - admin_ui: {order: 0, width: 200}
+      name: result_json
+      type: simpleObject
+    - admin_ui: {order: 1, width: 200}
+      name: pdf
+      type: media
+    server: full
+    title: documents
+  files:
+    client: none
+    columns:
+    - admin_ui: {order: 0, width: 200}
+      name: path
+      type: string
+    - admin_ui: {order: 1, width: 200}
+      name: file
+      type: media
+    - admin_ui: {order: 2, width: 200}
+      name: file_version
+      type: string
+    server: full
+    title: Files
+  users:
+    client: none
+    columns:
+    - admin_ui: {order: 0, width: 200}
+      name: email
+      type: string
+    - admin_ui: {order: 1, width: 200}
+      name: enabled
+      type: bool
+    - admin_ui: {order: 2, width: 200}
+      name: last_login
+      type: datetime
+    - admin_ui: {order: 3, width: 200}
+      name: password_hash
+      type: string
+    - admin_ui: {order: 4, width: 200}
+      name: n_password_failures
+      type: number
+    - admin_ui: {order: 5, width: 200}
+      name: confirmed_email
+      type: bool
+    - admin_ui: {order: 6, width: 200}
+      name: remembered_logins
+      type: simpleObject
+    server: full
+    title: Users
 dependencies: []
 name: M3 App 2
 package_name: M3_App_2
@@ -8,5 +60,18 @@ runtime_options:
   server_spec: {base: python310-minimal}
   server_version: python3-sandbox
   version: 2
-services: []
+services:
+- client_config: {}
+  server_config: {}
+  source: /runtime/services/tables.yml
+- client_config: {}
+  server_config: {file_table: files}
+  source: /runtime/services/anvil/files.yml
+- client_config: {allow_remember_me: true, allow_signup: false, confirm_email: true, enable_automatically: false, remember_me_days: 30, use_email: false, use_google: true}
+  server_config: {user_table: users}
+  source: /runtime/services/anvil/users.yml
+- client_config: {}
+  server_config: {}
+  source: /runtime/services/google.yml
 startup_form: Form1
+uplink_visible: true
