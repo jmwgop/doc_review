@@ -1,52 +1,105 @@
-# ================================
-# 1.  SERVER MODULE  (ReviewService)
-# ================================
-
+############################################################
+# ReviewService  (Server Module) – matches table: pdf,
+# result_json, corrected_json, doc_id
+############################################################
 import json
-from pathlib import Path
 import anvil.server
-import anvil.media
+import anvil.tables as tables
 from anvil.tables import app_tables
+from datetime import datetime
 
-_DATA_DIR = Path("data/output")          # fallback when table empty
-_PDF_DIR  = Path("data/input")
+# ─── Configuration ────────────────────────────────────────
+TABLE_NAME            = "documents"
+PDF_COL               = "pdf"            # Media object
+ORIGINAL_JSON_COL     = "result_json"    # Extractor output
+CORRECTED_JSON_COL    = "corrected_json" # Reviewer edits
+MAX_SUMMARY_FIELDS    = 8                # fields to show in list_documents
+# ───────────────────────────────────────────────────────────
 
-@anvil.server.callable
-def list_doc_ids() -> list[str]:
-  """Return doc_ids present in Data Table; fall back to file system."""
-  rows = app_tables.documents.search(tables.order_by("doc_id"))
-  if rows:
-    return [r["doc_id"] for r in rows]
-    # dev fallback so the form still loads even if table empty
-  return sorted(p.stem for p in _DATA_DIR.glob("*.json"))
 
-@anvil.server.callable
-def load_document(doc_id: str) -> dict:
-  """Return a dict {result_json, corrected_json, has_pdf}."""
-  row = app_tables.documents.get(doc_id=doc_id)
-  if row:
-    return {
-      "result_json": row["result_json"],
-      "corrected_json": row.get("corrected_json") or {},
-      "has_pdf": row["pdf"] is not None,
+# ─── Helpers ──────────────────────────────────────────────
+def _get_row(row_id):
+  row = app_tables[TABLE_NAME].get_by_id(row_id)
+  if row is None:
+    raise anvil.server.AppError(f"Document row '{row_id}' not found.")
+  return row
+
+
+def _load_json(row):
+  """Return whichever JSON (corrected → original) is present, as a dict."""
+  raw = row.get(CORRECTED_JSON_COL) or row[ORIGINAL_JSON_COL]
+  try:
+    return json.loads(raw)
+  except Exception as e:
+    raise anvil.server.AppError(f"Invalid JSON stored in row: {e}")
+
+
+# ─── RPC: List documents ──────────────────────────────────
+@anvil.server.callable(require_user=True)
+def list_documents():
+  """
+    Lightweight listing: row_id, created, doc_id + up to N scalar fields
+    auto-harvested from payload['output'][0].
+    """
+  docs = []
+  for row in app_tables[TABLE_NAME].search(tables.order_by("-created")):
+    item = {
+      "row_id":  row.get_id(),
+      "created": row.get("created", datetime.utcnow()),
+      "doc_id":  row.get("doc_id"),   # if you track an external id
     }
-    # local‑disk fallback (dev only)
-  with open(_DATA_DIR / f"{doc_id}.json", "r", encoding="utf-8") as fp:
-    payload = json.load(fp)
-  return {"result_json": payload, "corrected_json": {}, "has_pdf": False}
 
-@anvil.server.callable
-def save_corrected_json(doc_id: str, corrected: dict):
-  row = app_tables.documents.get(doc_id=doc_id)
-  if not row:
-    raise RuntimeError(f"No row for {doc_id} – push phase must run first")
-  row["corrected_json"] = corrected
+    payload = _load_json(row)
+    doc_level = payload.get("output", [{}])[0] if isinstance(payload.get("output"), list) else {}
 
-@anvil.server.callable
-def get_pdf(doc_id: str):
-  row = app_tables.documents.get(doc_id=doc_id)
-  if row and row["pdf"] is not None:
-    return row["pdf"]
-    # dev fallback
-  pdf_file = next((_PDF_DIR / doc_id).glob("*.pdf"), None)
-  return anvil.media.from_file(pdf_file, content_type="application/pdf") if pdf_file else None
+    for k, v in doc_level.items():
+      if isinstance(v, (str, int, float, bool)) and len(item) - 3 < MAX_SUMMARY_FIELDS:
+        item[k] = v
+
+    docs.append(item)
+  return docs
+
+
+# ─── RPC: Get a single document ───────────────────────────
+@anvil.server.callable(require_user=True)
+def get_document(row_id):
+  """
+    Returns {'row_id', 'pdf' (Media), 'json' (dict)}.
+    Prefers corrected_json; falls back to original result_json.
+    """
+  row = _get_row(row_id)
+  return {
+    "row_id": row_id,
+    "pdf":    row[PDF_COL],
+    "json":   _load_json(row),
+  }
+
+
+# ─── RPC: Save reviewer edits ─────────────────────────────
+@anvil.server.callable(require_user=True)
+def save_document(row_id, patched_json: dict):
+  """
+    Validates with ExtractionPayload (if importable) then stores to
+    corrected_json.
+    """
+  try:
+    from lease_extraction.models.dto.extraction import ExtractionPayload
+    ExtractionPayload.model_validate(patched_json)
+  except ModuleNotFoundError:
+    # model not shipped to Anvil – skip strict validation
+    pass
+  except Exception as e:
+    raise anvil.server.AppError(f"Validation error: {e}")
+
+  row = _get_row(row_id)
+  row[CORRECTED_JSON_COL] = json.dumps(patched_json, default=str)
+  row.update()
+  return {"status": "ok"}
+
+
+# ─── RPC: Delete a document row ───────────────────────────
+@anvil.server.callable(require_user=True)
+def delete_document(row_id):
+  row = _get_row(row_id)
+  row.delete()
+  return {"status": "deleted"}
