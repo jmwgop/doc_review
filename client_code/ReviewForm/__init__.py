@@ -1,6 +1,7 @@
 from ._anvil_designer import ReviewFormTemplate
 import anvil.server, json
-from anvil.js.window import encodeURIComponent
+from ..ui_builder_textbox_only import JsonTextboxBuilder   # ← new
+# no need for encodeURIComponent any more
 
 class ReviewForm(ReviewFormTemplate):
 
@@ -16,14 +17,27 @@ class ReviewForm(ReviewFormTemplate):
     )
 
     # ---- PDF on the left ----
-    if pdf_url:
-      self.pdf_frame.url = pdf_url          # one line does it
-    else:
-      self.pdf_frame.url = "about:blank"
+    self.pdf_frame.url = pdf_url or "about:blank"
 
-    # ---- JSON on the right ----
-    self.json_area.text = active_json_str
+    # ---- build editable widgets on the right ----
+    self.data_obj = json.loads(active_json_str)
+    payload = (self.data_obj.get("output") or [{}])[0]
+
+    self.builder = JsonTextboxBuilder()
+    self.dynamic_container.clear()                       # ← your empty ColumnPanel
+    self.dynamic_container.add_component(
+      self.builder.build(payload)                      # generate nested text boxes
+    )
+    self.payload_path = "output[0]"                      # remember where it sits
+
   # ---------- events ----------
   def save_btn_click(self, **event_args):
-    res = anvil.server.call("save_corrected_json", self.doc_id, self.json_area.text)
-    alert("Saved!" if res["ok"] else res["msg"], title="Save result", large=not res["ok"])
+    # collect edits back into the JSON object
+    self.data_obj["output"][0] = self.builder.collect(
+      self.data_obj["output"][0], self.payload_path
+    )
+    res = anvil.server.call(
+      "save_corrected_json", self.doc_id, json.dumps(self.data_obj)
+    )
+    alert("Saved!" if res["ok"] else res["msg"],
+          title="Save result", large=not res["ok"])

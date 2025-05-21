@@ -1,6 +1,7 @@
 # JsonItemTpl
+from ._anvil_designer import JsonItemTplTemplate
 from anvil import *
-from .ui_builder_textbox_only import JsonTextboxBuilder
+from ..ui_builder_textbox_only import JsonTextboxBuilder
 
 class JsonItemTpl(JsonItemTplTemplate):
   def set_item(self, item):
